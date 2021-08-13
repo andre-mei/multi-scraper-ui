@@ -1,0 +1,21 @@
+# Ignore build artifacts entirely
+**/target/
+**/.gradle/
+**/build/
+**/out/
+
+# Ignore generated Java code (Lombok, MapStruct, protobuf)
+**/generated-sources/
+
+# Ignore heavy configuration/binary environments
+**/.settings/
+**/.classpath/
+**/.project/
+**/.idea/
+*.jar
+*.war
+
+# Ignore Frontend dependencies inside the UI project
+**/node_modules/
+**/dist/
+**/.next/
