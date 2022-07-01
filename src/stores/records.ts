@@ -1,4 +1,4 @@
-import { defineSetupStore } from './defineSetupStore'
+import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/api'
 import type { RecordJsonPayload } from '@/types'
@@ -10,7 +10,7 @@ interface RecordRef {
 }
 
 /** The one record JSON the viewer modal is showing (or waiting for). */
-export const useRecordsStore = defineSetupStore('records', () => {
+export const useRecordsStore = defineStore('records', () => {
   const current = ref<RecordRef | null>(null)
   const loading = ref(false)
   const payload = ref<RecordJsonPayload | null>(null)

@@ -1,8 +1,8 @@
 # Scrapers Visualizer
 
-Snapshot date: 13 August 2021.
+Snapshot date: 1 July 2022.
 
-Admin dashboard for monitoring and managing distributed scrapers. Built with Vue 3, TypeScript, Vite, and Naive UI. It calls the Manager HTTP API already shipped in June and July 2021 (`/api/scrapers`, `/api/commands`, logs and data). Column layout is stored in the browser.
+Admin dashboard for monitoring and managing distributed scrapers. Built with Vue 3, TypeScript, Vite, and Naive UI.
 
 ## Features
 
@@ -20,7 +20,7 @@ Admin dashboard for monitoring and managing distributed scrapers. Built with Vue
 - **Pinia** - State management
 - **Vue Router 4** - Navigation
 - **Naive UI** - Component library
-- **Tailwind CSS 2.2** - Utility-first styling
+- **Tailwind CSS 3.1** - Utility-first styling
 - **VueUse** - Composable utilities
 
 ## Project Structure

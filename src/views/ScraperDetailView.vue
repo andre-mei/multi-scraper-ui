@@ -212,6 +212,10 @@ watch(scraperId, loadData, { immediate: true });
                 <dd>{{ scraper?.version }}</dd>
               </div>
               <div class="info-item">
+                <dt>Scraping Mode</dt>
+                <dd>{{ scraper?.scrapingMode || "HTTP" }}</dd>
+              </div>
+              <div class="info-item">
                 <dt>Host</dt>
                 <dd>{{ scraper?.host }}:{{ scraper?.port }}</dd>
               </div>

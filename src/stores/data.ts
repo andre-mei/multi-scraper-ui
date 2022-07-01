@@ -1,9 +1,9 @@
-import { defineSetupStore } from './defineSetupStore'
+import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/api'
 import type { DataUpdatePayload } from '@/types'
 
-export const useDataStore = defineSetupStore('data', () => {
+export const useDataStore = defineStore('data', () => {
   // tableName → records
   const tableData = ref<Record<string, Record<string, unknown>[]>>({})
   const tableTotalCounts = ref<Record<string, number>>({})

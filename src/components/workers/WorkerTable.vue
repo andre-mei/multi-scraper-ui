@@ -121,7 +121,9 @@ const columns = computed<DataTableColumns<Worker>>(() => [
                 ? "error"
                 : row.status === "RUNNING"
                   ? "success"
-                  : "default",
+                  : row.status === "INITIALIZING"
+                    ? "info"
+                    : "default",
           }),
         default: () => `${formatPercent(percent)} complete`,
       });
@@ -191,7 +193,7 @@ function handleCheckedRowKeysUpdate(keys: RowKey[]) {
   <NDataTable
     :columns="columns"
     :data="workers"
-    :row-key="(row) => row.workerId"
+    :row-key="(row: Worker) => row.workerId"
     :checked-row-keys="checkedRowKeys"
     :bordered="false"
     :single-line="false"

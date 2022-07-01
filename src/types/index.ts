@@ -15,6 +15,7 @@ export type ScraperStatus =
 
 export type WorkerStatus = 
   | 'IDLE'
+  | 'INITIALIZING'
   | 'RUNNING'
   | 'PAUSED'
   | 'COMPLETED'
@@ -168,6 +169,7 @@ export interface Scraper {
   name: string
   type: string
   version: string
+  scrapingMode?: string
   host: string
   port: number
   status: ScraperStatus

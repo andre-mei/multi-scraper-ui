@@ -181,7 +181,7 @@ const scrapers = computed(() => scrapersStore.scraperList);
     class="scraper-table"
     :columns="columns"
     :data="scrapers"
-    :row-key="(row) => row.scraperId"
+    :row-key="(row: Scraper) => row.scraperId"
     :bordered="false"
     :single-line="false"
     striped

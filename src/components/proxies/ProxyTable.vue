@@ -281,15 +281,6 @@ function prefKey(): string {
   return `proxyTable:${props.scraperId}`;
 }
 
-function readStoredPrefs(key: string): ColumnPrefs | null {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as ColumnPrefs) : null;
-  } catch {
-    return null;
-  }
-}
-
 const allColumnKeys = computed(() => allColumnDefs.map((c) => c.key));
 
 function getPrefs(): ColumnPrefs {
@@ -466,16 +457,16 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function savePrefsDebounced() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(prefKey(), JSON.stringify(getPrefs()));
-    } catch (err) {
-      console.error("Failed to save proxy table prefs:", err);
-    }
+    api
+      .savePreference(prefKey(), getPrefs())
+      .catch((err: unknown) =>
+        console.error("Failed to save proxy table prefs:", err),
+      );
   }, 500);
 }
 
 async function loadPrefs() {
-  const saved = readStoredPrefs(prefKey());
+  const saved = await api.getPreference<ColumnPrefs>(prefKey());
   if (saved) {
     columnPrefs.value = saved;
   }

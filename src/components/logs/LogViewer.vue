@@ -11,8 +11,7 @@ import { MAX_LOGS_IN_MEMORY, useLogsStore } from "@/stores/logs";
 import { useFormatters } from "@/composables/useFormatters";
 import { useThrottleFn } from "@vueuse/core";
 import { logGroupTitle } from "@/composables/usePhases";
-import { groupLogs } from "./logGroups";
-import type { DisplayEntry } from "./logGroups";
+import { groupLogs, type DisplayEntry } from "./logGroups";
 
 // Module-level map to persist scroll positions across component mount/unmount cycles
 const savedScrollPositions = new Map<string, number>();

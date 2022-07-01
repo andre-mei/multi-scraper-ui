@@ -1,9 +1,9 @@
-import { defineSetupStore } from './defineSetupStore'
+import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Worker } from '@/types'
 import { api } from '@/api'
 
-export const useWorkersStore = defineSetupStore('workers', () => {
+export const useWorkersStore = defineStore('workers', () => {
   // State: scraperId -> Map<workerId, Worker>
   const workersByScraperId = ref<Map<string, Map<string, Worker>>>(new Map())
   const loading = ref(false)

@@ -1,9 +1,9 @@
-import { defineSetupStore } from './defineSetupStore'
+import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Command, CommandType, CommandResponse } from '@/types'
 import { api } from '@/api'
 
-export const useCommandsStore = defineSetupStore('commands', () => {
+export const useCommandsStore = defineStore('commands', () => {
   // State: scraperId -> commands array
   const commandsByScraperId = ref<Map<string, Command[]>>(new Map())
   const pendingCommands = ref<Map<string, Command>>(new Map())

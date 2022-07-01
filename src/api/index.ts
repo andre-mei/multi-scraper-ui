@@ -11,7 +11,7 @@ import type {
   ScraperConfig
 } from '@/types'
 
-const API_BASE = '/api'
+const API_BASE = '/api/ui'
 
 class ApiService {
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -222,6 +222,21 @@ class ApiService {
     })
   }
 
+  // UI Preferences
+  async getPreference<T = unknown>(key: string): Promise<T | null> {
+    try {
+      return await this.request<T>(`/preferences/${key}`)
+    } catch {
+      return null
+    }
+  }
+
+  async savePreference(key: string, value: unknown): Promise<void> {
+    await this.request(`/preferences/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify(value)
+    })
+  }
 }
 
 export const api = new ApiService()

@@ -1,9 +1,9 @@
-import { defineSetupStore } from './defineSetupStore'
+import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Scraper, ScraperStatus } from '@/types'
 import { api } from '@/api'
 
-export const useScrapersStore = defineSetupStore('scrapers', () => {
+export const useScrapersStore = defineStore('scrapers', () => {
   const scrapers = ref<Map<string, Scraper>>(new Map())
   const loading = ref(false)
   const error = ref<string | null>(null)

@@ -50,7 +50,7 @@ onMounted(() => {
       >
         <NSpace vertical :size="4">
           <NSpace align="center" :size="8">
-            <NTag :color="{ color: getCommandStatusColor(cmd.status) + '33', textColor: getCommandStatusColor(cmd.status) }" size="small">
+            <NTag :color="{ color: getCommandStatusColor(cmd.status) + '33', textColor: getCommandStatusColor(cmd.status) }" size="tiny">
               {{ cmd.status }}
             </NTag>
             <NText v-if="cmd.workerId" code depth="3" class="text-xs">

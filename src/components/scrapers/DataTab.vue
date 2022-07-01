@@ -2,6 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { useDataStore } from "@/stores/data";
 import { useRecordsStore } from "@/stores/records";
+import { api } from "@/api";
 import type { UiTable } from "@/composables/usePhases";
 import RecordJsonModal from "./RecordJsonModal.vue";
 
@@ -118,15 +119,6 @@ function sortIndicator(col: string): string {
 
 function prefKey(table: string): string {
   return `dataTable:${table}`;
-}
-
-function readStoredPrefs(key: string): ColumnPrefs | null {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as ColumnPrefs) : null;
-  } catch {
-    return null;
-  }
 }
 
 // Every key found in any row, in first-seen order, so a sparse first row hides nothing.
@@ -297,11 +289,10 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 function savePrefsDebounced() {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(prefKey(activeTable.value), JSON.stringify(getPrefs()));
-    } catch (err) {
-      console.error("Failed to save column prefs:", err);
-    }
+    const key = prefKey(activeTable.value);
+    api
+      .savePreference(key, getPrefs())
+      .catch((err) => console.error("Failed to save column prefs:", err));
   }, 500);
 }
 
@@ -312,7 +303,7 @@ async function loadPrefs() {
   for (const t of props.tables) {
     if (prefsRequested.has(t.key)) continue;
     prefsRequested.add(t.key);
-    const saved = readStoredPrefs(prefKey(t.key));
+    const saved = await api.getPreference<ColumnPrefs>(prefKey(t.key));
     if (saved) {
       columnPrefs.value[t.key] = saved;
     }

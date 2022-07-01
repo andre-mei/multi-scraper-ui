@@ -1,4 +1,4 @@
-import { defineSetupStore } from './defineSetupStore'
+import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { LogEntry, LogLevel } from '@/types'
 import { api } from '@/api'
@@ -14,7 +14,7 @@ function minimumSequence(logs: Array<{ sequence?: number }>): number | null {
   return Number.isFinite(oldest) ? oldest : null
 }
 
-export const useLogsStore = defineSetupStore('logs', () => {
+export const useLogsStore = defineStore('logs', () => {
   // State: scraperId -> logs array
   const logsByScraperId = ref<Map<string, LogEntry[]>>(new Map())
   const loading = ref(false)

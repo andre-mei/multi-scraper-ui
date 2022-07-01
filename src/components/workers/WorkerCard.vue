@@ -53,7 +53,7 @@ function navigateToWorker() {
           <NText class="text-sm font-medium">{{
             worker.name || worker.workerId
           }}</NText>
-          <NTag :type="getStatusType(displayStatus)" size="small" round>
+          <NTag :type="getStatusType(displayStatus)" size="tiny" round>
             {{ displayStatus }}
           </NTag>
         </NSpace>
@@ -79,7 +79,9 @@ function navigateToWorker() {
                 ? 'error'
                 : worker.status === 'RUNNING'
                   ? 'success'
-                  : 'default'
+                  : worker.status === 'INITIALIZING'
+                    ? 'info'
+                    : 'default'
             "
           />
         </template>
