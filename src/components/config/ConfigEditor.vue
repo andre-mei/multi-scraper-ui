@@ -4,16 +4,19 @@ import {
   NCard,
   NForm,
   NFormItem,
+  NInput,
   NInputNumber,
   NSwitch,
   NButton,
   NSpace,
+  NDynamicInput,
   NSpin,
+  NEmpty,
   useMessage
 } from 'naive-ui'
-import type { Scraper, ScraperConfig } from '@/types'
+import type { Scraper } from '@/types'
 import { api } from '@/api'
-import { SETTINGS, NEWEST_FIRST_CRAWL } from '@/composables/usePhases'
+import { useFlavor } from '@/composables/useFlavor'
 
 const props = defineProps<{
   scraper: Scraper
@@ -27,29 +30,32 @@ const message = useMessage()
 const loading = ref(false)
 const fetchingConfig = ref(false)
 
-// The fixed config fields, plus the switches the scraper reports in `customSettings` (newestFirstCrawl).
-const settings = computed(() =>
-  props.scraper.config?.customSettings && NEWEST_FIRST_CRAWL.key in props.scraper.config.customSettings
-    ? [...SETTINGS, NEWEST_FIRST_CRAWL]
-    : SETTINGS
-)
+// The form is the flavor's `settings`; the Manager and this component know no setting key.
+const { settings } = useFlavor(() => props.scraper)
 
 /** What the form edits, and the values it was loaded with (to find what changed). */
 const form = ref<Record<string, unknown>>({})
 const saved = ref<Record<string, unknown>>({})
 
 const asNumber = (v: unknown) => (typeof v === 'number' ? v : null)
+const asString = (v: unknown) => (typeof v === 'string' ? v : '')
 const asBool = (v: unknown) => v === true
+const asList = (v: unknown) => (Array.isArray(v) ? (v as string[]) : [])
 
 /** A missing value counts as the empty one of its type, so "not set" and "empty" are not a change. */
 function normalized(type: string, v: unknown): unknown {
-  return type === 'BOOL' ? asBool(v) : asNumber(v)
+  switch (type) {
+    case 'INT':
+    case 'LONG': return asNumber(v)
+    case 'BOOL': return asBool(v)
+    case 'STRING_LIST': return asList(v)
+    default: return asString(v)
+  }
 }
 
-function load(config: ScraperConfig | null | undefined) {
-  const values: Record<string, unknown> = { ...config, ...config?.customSettings }
+function load(values: Record<string, unknown> | null | undefined) {
   const loaded: Record<string, unknown> = {}
-  for (const s of settings.value) loaded[s.key] = normalized(s.type, values[s.key])
+  for (const s of settings.value) loaded[s.key] = normalized(s.type, values?.[s.key])
   saved.value = loaded
   form.value = JSON.parse(JSON.stringify(loaded))
 }
@@ -60,10 +66,10 @@ async function fetchConfig() {
 
   fetchingConfig.value = true
   try {
-    load((await api.getConfig(props.scraper.scraperId)) ?? props.scraper.config)
+    load((await api.getConfig(props.scraper.scraperId)) ?? props.scraper.settingsValues)
   } catch (e) {
     console.error('Failed to fetch config:', e)
-    load(props.scraper.config)
+    load(props.scraper.settingsValues)
   } finally {
     fetchingConfig.value = false
   }
@@ -78,16 +84,14 @@ watch(
   { immediate: true }
 )
 
-/** Only the fields whose value differs from what was loaded; switches go inside `customSettings`. */
+/** Only the keys whose value differs from what was loaded. */
 const changes = computed(() => {
   const out: Record<string, unknown> = {}
-  const custom: Record<string, unknown> = {}
   for (const s of settings.value) {
     const now = normalized(s.type, form.value[s.key])
-    if (JSON.stringify(now) !== JSON.stringify(saved.value[s.key])) (s.custom ? custom : out)[s.key] = now
+    if (JSON.stringify(now) !== JSON.stringify(saved.value[s.key])) out[s.key] = now
   }
-  if (Object.keys(custom).length > 0) out.customSettings = custom
-  return out as Partial<ScraperConfig>
+  return out
 })
 const hasChanges = computed(() => Object.keys(changes.value).length > 0)
 
@@ -121,7 +125,8 @@ function resetForm() {
 
 <template>
   <NCard title="Configuration">
-    <NSpin :show="fetchingConfig">
+    <NEmpty v-if="settings.length === 0" description="This scraper declares no settings." />
+    <NSpin v-else :show="fetchingConfig">
       <NForm
         :model="form"
         label-placement="left"
@@ -140,10 +145,22 @@ function resetForm() {
             :min="s.min ?? undefined"
             :max="s.max ?? undefined"
             @update:value="v => (form[s.key] = v)"
-          />
+          >
+            <template v-if="s.unit" #suffix>{{ s.unit }}</template>
+          </NInputNumber>
           <NSwitch
-            v-else
+            v-else-if="s.type === 'BOOL'"
             :value="asBool(form[s.key])"
+            @update:value="v => (form[s.key] = v)"
+          />
+          <NDynamicInput
+            v-else-if="s.type === 'STRING_LIST'"
+            :value="asList(form[s.key])"
+            @update:value="v => (form[s.key] = v)"
+          />
+          <NInput
+            v-else
+            :value="asString(form[s.key])"
             @update:value="v => (form[s.key] = v)"
           />
         </NFormItem>

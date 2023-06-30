@@ -1,9 +1,8 @@
-<script lang="ts">
-export default { name: "JsonTree" };
-</script>
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import JsonTree from "./JsonTree.vue";
+
+defineOptions({ name: "JsonTree" });
 
 const props = withDefaults(
   defineProps<{

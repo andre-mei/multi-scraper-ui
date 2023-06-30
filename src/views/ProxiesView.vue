@@ -16,6 +16,8 @@ interface GlobalProxy extends ProxyDetail {
 const allProxies = computed<GlobalProxy[]>(() => {
   const proxies: GlobalProxy[] = [];
   for (const scraper of scrapersStore.scraperList) {
+    // A flavor that declares no proxies has nothing to list here (absent capability = true).
+    if (scraper.flavor?.capabilities?.proxies === false) continue;
     if (scraper.proxyDetails && scraper.proxyDetails.length > 0) {
       for (const proxy of scraper.proxyDetails) {
         proxies.push({

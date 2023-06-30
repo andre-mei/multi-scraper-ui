@@ -6,7 +6,7 @@ import type { DataTableColumns } from "naive-ui";
 import type { Scraper, ScraperStatus } from "@/types";
 import { useScrapersStore } from "@/stores/scrapers";
 import { useFormatters } from "@/composables/useFormatters";
-import { phaseText } from "@/composables/usePhases";
+import { stageTextFor } from "@/composables/useFlavor";
 
 const router = useRouter();
 const scrapersStore = useScrapersStore();
@@ -70,12 +70,12 @@ const columns: DataTableColumns<Scraper> = [
       ]),
   },
   {
-    title: "Phase",
-    key: "currentPhase",
+    title: "Stage",
+    key: "currentStage",
     width: 190,
     ellipsis: { tooltip: true },
     render: (row) =>
-      h("span", { class: "cell-phase" }, phaseText(row.currentPhase) || "—"),
+      h("span", { class: "cell-stage" }, stageTextFor(row, row.currentStage) || "—"),
   },
   {
     title: "Workers",
@@ -209,8 +209,8 @@ const scrapers = computed(() => scrapersStore.scraperList);
   font-size: 13px;
 }
 
-/* Phase chip */
-.scraper-table :deep(.cell-phase) {
+/* Stage chip */
+.scraper-table :deep(.cell-stage) {
   color: #ffffffb0;
   font-style: italic;
   font-size: 13px;

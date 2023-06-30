@@ -5,13 +5,14 @@ import type { Scraper } from '@/types'
 import { useRouter } from 'vue-router'
 import { useStatusColors } from '@/composables/useStatusColors'
 import { useFormatters } from '@/composables/useFormatters'
-import { phaseText } from '@/composables/usePhases'
+import { useFlavor } from '@/composables/useFlavor'
 
 const props = defineProps<{
   scraper: Scraper
 }>()
 
 const router = useRouter()
+const { stageText } = useFlavor(() => props.scraper)
 const { getStatusType } = useStatusColors()
 const { formatNumber, formatRelativeTime, formatPercent, formatRate } = useFormatters()
 
@@ -87,10 +88,10 @@ function navigateToScraper() {
         </NGi>
       </NGrid>
 
-      <!-- Phase -->
-      <div v-if="scraper.currentPhase" class="flex items-center gap-2">
-        <NText depth="3" class="text-xs">Phase:</NText>
-        <NText class="text-xs">{{ phaseText(scraper.currentPhase) }}</NText>
+      <!-- Stage -->
+      <div v-if="scraper.currentStage" class="flex items-center gap-2">
+        <NText depth="3" class="text-xs">Stage:</NText>
+        <NText class="text-xs">{{ stageText(scraper.currentStage) }}</NText>
       </div>
     </div>
   </NCard>

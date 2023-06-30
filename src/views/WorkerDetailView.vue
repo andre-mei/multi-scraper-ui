@@ -15,12 +15,15 @@ import {
   NBreadcrumbItem,
   NDivider,
   NAlert,
+  NButton,
+  useMessage,
 } from "naive-ui";
 import { useScrapersStore } from "@/stores/scrapers";
 import { useWorkersStore } from "@/stores/workers";
 import { useStatusColors } from "@/composables/useStatusColors";
 import { useFormatters } from "@/composables/useFormatters";
-import { phaseText } from "@/composables/usePhases";
+import { useFlavor } from "@/composables/useFlavor";
+import { api } from "@/api";
 import MetricsCard from "@/components/metrics/MetricsCard.vue";
 import LogViewer from "@/components/logs/LogViewer.vue";
 
@@ -30,12 +33,15 @@ const scrapersStore = useScrapersStore();
 const workersStore = useWorkersStore();
 const { getStatusType } = useStatusColors();
 const { formatTimestamp, formatRelativeTime } = useFormatters();
+const message = useMessage();
 
 const scraperId = computed(() => route.params.scraperId as string);
 const workerId = computed(() => route.params.workerId as string);
 const activeTab = ref("metrics");
+const loading = ref(false);
 
 const scraper = computed(() => scrapersStore.scrapers.get(scraperId.value));
+const { stageText } = useFlavor(scraper);
 
 // Reactively track the worker from the store (updated via WebSocket HEALTH_UPDATE)
 const worker = computed(
@@ -57,11 +63,47 @@ const displayStatus = computed(() => {
 // Only show disconnected alert when scraper status is actually DISCONNECTED
 const isDisconnected = computed(() => scraper.value?.status === "DISCONNECTED");
 
+// Worker action button states
+const canPause = computed(
+  () => worker.value?.status === "RUNNING" && !isDisconnected.value,
+);
+const canResume = computed(
+  () => worker.value?.status === "PAUSED" && !isDisconnected.value,
+);
+
 async function loadData() {
   if (!scraperId.value || !workerId.value) return;
 
   await scrapersStore.fetchScraper(scraperId.value);
   await workersStore.fetchWorker(scraperId.value, workerId.value);
+}
+
+async function pauseWorker() {
+  if (!scraperId.value || !workerId.value) return;
+  loading.value = true;
+  try {
+    await api.sendCommand(scraperId.value, "PAUSE_WORKER", workerId.value);
+    message.success("Worker paused");
+    await loadData();
+  } catch (e) {
+    message.error("Failed to pause worker");
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function resumeWorker() {
+  if (!scraperId.value || !workerId.value) return;
+  loading.value = true;
+  try {
+    await api.sendCommand(scraperId.value, "RESUME_WORKER", workerId.value);
+    message.success("Worker resumed");
+    await loadData();
+  } catch (e) {
+    message.error("Failed to resume worker");
+  } finally {
+    loading.value = false;
+  }
 }
 
 // watch with immediate:true handles initial load - no need for onMounted
@@ -92,15 +134,34 @@ watch([scraperId, workerId], loadData, { immediate: true });
         >
           {{ displayStatus || worker.status }}
         </NTag>
-        <NTag v-if="worker?.currentPhase" size="small" round>
-          {{ phaseText(worker.currentPhase) }}
+        <NTag v-if="worker?.currentStage" size="small" round>
+          {{ stageText(worker.currentStage) }}
         </NTag>
+      </NSpace>
+      <!-- Worker Action Buttons -->
+      <NSpace v-if="worker">
+        <NButton
+          type="warning"
+          :disabled="!canPause"
+          :loading="loading"
+          @click="pauseWorker"
+        >
+          Pause Worker
+        </NButton>
+        <NButton
+          type="success"
+          :disabled="!canResume"
+          :loading="loading"
+          @click="resumeWorker"
+        >
+          Resume Worker
+        </NButton>
       </NSpace>
     </div>
 
     <!-- Disconnection Alert -->
     <NAlert v-if="isDisconnected" type="warning" title="Scraper Disconnected">
-      The parent scraper is currently disconnected.
+      The parent scraper is currently disconnected. Commands cannot be sent.
     </NAlert>
 
     <!-- Info Card -->

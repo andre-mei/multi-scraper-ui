@@ -7,8 +7,7 @@ import type {
   CommandResponse,
   ManagerStatus,
   DataResponse,
-  ProxyDetail,
-  ScraperConfig
+  ProxyDetail
 } from '@/types'
 
 const API_BASE = '/api/ui'
@@ -174,18 +173,18 @@ class ApiService {
   }
 
   // Config
-  /** The scraper's current settings. */
-  async getConfig(scraperId: string): Promise<ScraperConfig | null> {
+  /** The scraper's current setting values, by key (the keys are declared by its flavor). */
+  async getConfig(scraperId: string): Promise<Record<string, unknown> | null> {
     try {
-      return await this.request<ScraperConfig>(`/scrapers/${scraperId}/config`)
+      return await this.request<Record<string, unknown>>(`/scrapers/${scraperId}/config`)
     } catch (e) {
       console.warn('Failed to fetch config:', e)
       return null
     }
   }
 
-  /** Sends the changed settings only (switches such as newestFirstCrawl inside `customSettings`). */
-  async updateConfig(scraperId: string, config: Partial<ScraperConfig>): Promise<CommandResponse> {
+  /** Sends the changed settings only. */
+  async updateConfig(scraperId: string, config: Record<string, unknown>): Promise<CommandResponse> {
     return this.request<CommandResponse>(`/scrapers/${scraperId}/config`, {
       method: 'PUT',
       body: JSON.stringify(config)
@@ -209,9 +208,9 @@ class ApiService {
   }
 
   /** Ask the scraper for one record's JSON; the answer arrives as a RECORD_JSON WebSocket message. */
-  async fetchRecord(scraperId: string, tableName: string, recordId: string): Promise<{ status: string }> {
+  async fetchRecord(scraperId: string, tableKey: string, recordId: string): Promise<{ status: string }> {
     return this.request<{ status: string }>(
-      `/scrapers/${scraperId}/data/${encodeURIComponent(tableName)}/record`,
+      `/scrapers/${scraperId}/data/${encodeURIComponent(tableKey)}/record`,
       { method: 'POST', body: JSON.stringify({ recordId }) }
     )
   }

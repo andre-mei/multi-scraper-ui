@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { NSpace, NButton, NPopconfirm, NDropdown, useMessage } from "naive-ui";
+import { NSpace, NButton, NPopconfirm, NDropdown, useDialog, useMessage } from "naive-ui";
 import type { CommandType, Scraper, ScraperStatus } from "@/types";
 import { useCommandsStore } from "@/stores/commands";
-import { nextPhase, RESUMABLE_PHASES } from "@/composables/usePhases";
+import { useFlavor } from "@/composables/useFlavor";
 
 const props = defineProps<{
   scraperId: string;
@@ -11,13 +11,15 @@ const props = defineProps<{
   workerIds?: string[];
   disabled?: boolean;
   scraperStatus?: ScraperStatus;
-  /** The scraper these buttons control; its current phase names the Continue button. */
+  /** The scraper these buttons control; its flavor decides the Continue / Resume labels. */
   scraper?: Scraper | null;
 }>();
 
 const commandsStore = useCommandsStore();
 const message = useMessage();
+const dialog = useDialog();
 const loading = ref(false);
+const { actions, nextStage, resumableStages, hasProxies } = useFlavor(() => props.scraper);
 
 // Status helper computeds
 const isRunning = computed(() => props.scraperStatus === "RUNNING");
@@ -38,10 +40,11 @@ const mainButtonConfig = computed(() => {
   }
 
   if (isWaitingApproval.value) {
-    const next = nextPhase(props.scraper?.currentPhase);
+    const next = nextStage(props.scraper?.currentStage);
     return {
       label: next ? `Continue ${next.label}` : "Continue",
-      command: "ADVANCE_PHASE" as CommandType,
+      command: "ADVANCE_STAGE" as CommandType,
+      parameters: next ? { stageId: next.id } : undefined,
       type: "success" as const,
       disabled: props.disabled || loading.value,
     };
@@ -76,12 +79,13 @@ const abortDisabled = computed(
     props.disabled || loading.value || (!isRunning.value && !isPaused.value),
 );
 
-async function sendCommand(type: CommandType) {
+async function sendCommand(type: CommandType, parameters?: Record<string, unknown>) {
   loading.value = true;
   try {
     const response = await commandsStore.sendCommand(props.scraperId, type, {
       workerId: props.workerId,
       workerIds: props.workerIds,
+      parameters,
     });
 
     if (response?.success) {
@@ -99,31 +103,51 @@ async function sendCommand(type: CommandType) {
 const moreOptions = computed(() => {
   const runActive = isRunning.value || isPaused.value;
   return [
-    ...RESUMABLE_PHASES.map((p) => ({
-      label: `Resume from ${p.label}`,
-      key: p.resumeCommand as string,
+    ...resumableStages.value.map((s) => ({
+      label: `Resume from ${s.label}`,
+      key: `stage:${s.id}`,
       disabled: runActive,
     })),
-    { label: "Clear Cache", key: "CLEAR_CACHE" },
-    { label: "Refresh Proxies", key: "REFRESH_PROXIES" },
+    ...actions.value.map((a) => ({ label: a.label, key: `action:${a.id}` })),
+    ...(hasProxies.value ? [{ label: "Refresh Proxies", key: "REFRESH_PROXIES" }] : []),
     { label: "Force Health Report", key: "FORCE_HEALTH_REPORT" },
   ];
 });
 
+function runAction(id: string) {
+  const action = actions.value.find((a) => a.id === id);
+  if (!action) return;
+  const send = () => sendCommand("ACTION", { actionId: action.id });
+  if (!action.confirm) return send();
+  dialog.warning({
+    title: action.label,
+    content: action.confirm,
+    positiveText: action.label,
+    negativeText: "Cancel",
+    onPositiveClick: send,
+  });
+}
+
 function handleMoreSelect(key: string) {
-  sendCommand(key as CommandType);
+  if (key.startsWith("stage:")) {
+    sendCommand("START_FROM_STAGE", { stageId: key.slice("stage:".length) });
+  } else if (key.startsWith("action:")) {
+    runAction(key.slice("action:".length));
+  } else {
+    sendCommand(key as CommandType);
+  }
 }
 </script>
 
 <template>
   <NSpace class="command-buttons">
-    <!-- Main action button: Start / Resume / Continue <next phase> -->
+    <!-- Main action button: Start / Resume / Continue <next stage> -->
     <NButton
       class="cmd-btn cmd-btn--main"
       :type="mainButtonConfig.type"
       :disabled="mainButtonConfig.disabled"
       :loading="loading"
-      @click="sendCommand(mainButtonConfig.command)"
+      @click="sendCommand(mainButtonConfig.command, mainButtonConfig.parameters)"
     >
       {{ mainButtonConfig.label }}
     </NButton>

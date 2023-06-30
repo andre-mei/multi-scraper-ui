@@ -3,14 +3,14 @@ import { ref, watch, computed } from "vue";
 import { useDataStore } from "@/stores/data";
 import { useRecordsStore } from "@/stores/records";
 import { api } from "@/api";
-import type { UiTable } from "@/composables/usePhases";
+import type { UiTable } from "@/composables";
 import RecordJsonModal from "./RecordJsonModal.vue";
 
 const props = defineProps<{
   scraperId: string;
   active: boolean;
   subTab?: string;
-  /** The tables of the scraper's local database. */
+  /** The scraper's data tables (from its flavor descriptor). */
   tables: UiTable[];
 }>();
 
@@ -21,9 +21,12 @@ const emit = defineEmits<{
 const dataStore = useDataStore();
 const recordsStore = useRecordsStore();
 
-// The URL segment is the slug of the table's label; an unknown one opens the first table.
+// The URL segment is the table key. Old links used the label slug, so fall back to it, then to the first table.
 function routeToKey(param: string | undefined): string {
-  const found = props.tables.find((t) => t.routeKey === param) ?? props.tables[0];
+  const found =
+    props.tables.find((t) => t.routeKey === param) ??
+    props.tables.find((t) => t.slug === param) ??
+    props.tables[0];
   return found?.key ?? "";
 }
 function keyToRoute(key: string): string {
@@ -78,7 +81,8 @@ const prefsLoaded = ref(false);
 // ==================== Column Display Names ====================
 
 function columnDisplayName(col: string): string {
-  return table.value?.columnLabels?.[col] ?? col;
+  const declared = table.value?.columns?.find((c) => c.key === col)?.label;
+  return declared ?? table.value?.columnLabels?.[col] ?? col;
 }
 
 // ==================== Sorting ====================
@@ -121,11 +125,12 @@ function prefKey(table: string): string {
   return `dataTable:${table}`;
 }
 
-// Every key found in any row, in first-seen order, so a sparse first row hides nothing.
+// Declared columns first (in their order), then every other key found in any row, in first-seen order.
+// Without declared columns this is simply the union of keys, so a sparse first row hides nothing.
 const allColumns = computed(() => {
   if (records.value.length === 0) return [];
   const hidden = table.value?.hiddenColumns ?? [];
-  const seen = new Set<string>();
+  const seen = new Set<string>((table.value?.columns ?? []).map((c) => c.key));
   for (const row of records.value) {
     for (const key of Object.keys(row)) seen.add(key);
   }
@@ -296,7 +301,7 @@ function savePrefsDebounced() {
   }, 500);
 }
 
-// Saved prefs are loaded once per table.
+// Saved prefs are loaded once per table; the descriptor may arrive after mount.
 const prefsRequested = new Set<string>();
 
 async function loadPrefs() {

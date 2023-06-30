@@ -24,8 +24,11 @@ export type WorkerStatus =
 
 export type CommandType =
   | 'START'
+  | 'START_FROM_STAGE'
   | 'PAUSE'
   | 'RESUME'
+  | 'PAUSE_WORKER'
+  | 'RESUME_WORKER'
   | 'ABORT'
   | 'STOP'
   | 'RESTART'
@@ -34,14 +37,13 @@ export type CommandType =
   | 'SET_PROXY_ENABLED'
   | 'RESET_PROXY_STATS'
   | 'RESET_ALL_PROXY_STATS'
-  | 'CLEAR_CACHE'
   | 'FORCE_HEALTH_REPORT'
-  | 'ADVANCE_PHASE'
-  | 'FETCH_LOGS'
+  | 'ADVANCE_STAGE'
+  | 'RESET_METRICS'
   | 'FETCH_DATA'
-  | 'START_FROM_PHASE_2'
-  | 'START_FROM_PHASE_3'
   | 'FETCH_RECORD'
+  | 'START_FROM_STAGE'
+  | 'ACTION'
 
 export type CommandStatus =
   | 'PENDING'
@@ -93,6 +95,8 @@ export interface WorkerMetrics {
 export interface ScraperEvent {
   type: string
   severity: string
+  /** Stage id this event belongs to (from the status history); rendered as "label · title · message". */
+  stage?: string | null
   message: string
   metadata?: Record<string, string>
   timestamp: string
@@ -173,16 +177,18 @@ export interface Scraper {
   host: string
   port: number
   status: ScraperStatus
-  /** The phase the scraper is in, e.g. PHASE_2_CRAWL (see usePhases). */
-  currentPhase?: string
+  currentStage?: string
+  flavor?: FlavorDescriptor | null
+  /** Problems the Manager found in the descriptor (FlavorDescriptor.problems()); never blocking. */
+  flavorProblems?: string[]
   workerCount: number
   activeWorkerCount: number
   idleWorkerCount: number
   errorWorkerCount: number
   workers?: Worker[]
   metrics?: ScraperMetrics
-  /** The scraper's current settings, as it reported them. */
-  config?: ScraperConfig | null
+  /** Current value of each setting the flavor declares (`flavor.settings`), by key. */
+  settingsValues?: Record<string, unknown> | null
   proxyStats?: ProxyStats
   proxyDetails?: ProxyDetail[]
   registeredAt?: string
@@ -200,22 +206,10 @@ export interface Scraper {
   statusHistory?: StatusHistoryEntry[]
 }
 
-/** The settings of a scraper (GET/PUT /scrapers/{id}/config). */
-export interface ScraperConfig {
-  targetUrl?: string
-  targetUrls?: string[]
-  maxWorkers: number
-  maxRetries: number
-  requestDelayMs: number
-  timeoutMs: number
-  useProxies: boolean
-  proxyCount?: number
-  /** Switches only some scrapers have, e.g. newestFirstCrawl. */
-  customSettings?: Record<string, unknown> | null
-}
-
 export interface StatusHistoryEntry {
   status: string
+  /** Stage id this entry belongs to (absent on old persisted entries). */
+  stage?: string | null
   message: string
   timestamp: string
 }
@@ -231,7 +225,7 @@ export interface Worker {
   status: WorkerStatus
   statusMessage?: string
   currentTask?: string
-  currentPhase?: string
+  currentStage?: string
   currentUrl?: string
   metrics?: WorkerMetrics
   startedAt?: string
@@ -303,11 +297,54 @@ export interface DataUpdatePayload {
   timestamp: string
 }
 
+// Flavor descriptor (sent by the scraper on registration, forwarded by the Manager unchanged)
+export interface FlavorStage { id: string; label: string; title?: string; resumable?: boolean }
+export interface FlavorSort { column: string; direction: 'asc' | 'desc' }
+export interface FlavorTable {
+  key: string
+  label: string
+  idColumn: string
+  jsonColumn?: string
+  defaultSort?: FlavorSort
+  hiddenColumns?: string[]
+  columnLabels?: Record<string, string>
+  /** Optional ordered columns; when present they come first, in this order. */
+  columns?: FlavorColumn[]
+}
+export interface FlavorColumn { key: string; label: string }
+/** A flavor-level one-shot command in the "More" menu; sent as ACTION{actionId}. */
+export interface FlavorAction { id: string; label: string; confirm?: string }
+/** One field of the Configuration form. Absent min/max/unit/help mean none. */
+export interface FlavorSetting {
+  key: string
+  label: string
+  type: 'INT' | 'LONG' | 'BOOL' | 'STRING' | 'STRING_LIST'
+  min?: number | null
+  max?: number | null
+  unit?: string | null
+  help?: string | null
+}
+export interface FlavorLogGroup { kind: string; title?: string }
+/** Absent = true: a descriptor without capabilities keeps the Workers and Proxies tabs. */
+export interface FlavorCapabilities { workers?: boolean; proxies?: boolean }
+export interface FlavorDescriptor {
+  schemaVersion: number
+  id: string
+  label: string
+  capabilities?: FlavorCapabilities | null
+  stages: FlavorStage[]
+  tables: FlavorTable[]
+  actions?: FlavorAction[]
+  settings?: FlavorSetting[]
+  logGroups?: FlavorLogGroup[]
+}
+
 /** Answer to FETCH_RECORD: one record's JSON column. */
 export interface RecordJsonPayload {
   scraperId: string
-  tableName: string
+  tableKey: string
   recordId: string
+  source?: string | null
   json?: string | null
   error?: string | null
 }
@@ -355,7 +392,7 @@ export interface WSMessage<T = unknown> {
 export interface WSScraperStatusPayload {
   scraperId: string
   status: ScraperStatus
-  currentPhase: string
+  currentStage: string
   statusHistory: StatusHistoryEntry[]
   timestamp: string
 }

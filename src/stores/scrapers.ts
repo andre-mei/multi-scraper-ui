@@ -78,6 +78,7 @@ export const useScrapersStore = defineStore('scrapers', () => {
       scraper.events = scraper.statusHistory.map(entry => ({
         type: entry.status,
         severity: entry.status === 'ERROR' ? 'error' : entry.status === 'DISCONNECTED' ? 'warning' : 'info',
+        stage: entry.stage ?? null,
         message: entry.message || `Status: ${entry.status}`,
         timestamp: entry.timestamp
       }))
@@ -99,10 +100,10 @@ export const useScrapersStore = defineStore('scrapers', () => {
    * Status change update (from SCRAPER_STATUS_CHANGE).
    * Updates status + replaces events from the included statusHistory.
    */
-  function updateScraperStatus(scraperId: string, status: ScraperStatus, currentPhase?: string, statusHistory?: import('@/types').StatusHistoryEntry[]) {
+  function updateScraperStatus(scraperId: string, status: ScraperStatus, currentStage?: string, statusHistory?: import('@/types').StatusHistoryEntry[]) {
     const scraper = scrapers.value.get(scraperId)
     if (scraper) {
-      const updated = { ...scraper, status, ...(currentPhase !== undefined ? { currentPhase } : {}) }
+      const updated = { ...scraper, status, ...(currentStage !== undefined ? { currentStage } : {}) }
       if (statusHistory && statusHistory.length > 0) {
         updated.statusHistory = statusHistory
       }

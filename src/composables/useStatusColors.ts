@@ -21,7 +21,7 @@ export function useStatusColors() {
 
   function getWorkerStatusColor(status: WorkerStatus): string {
     const colors: Record<WorkerStatus, string> = {
-      INITIALIZING: '#2080f0', // SCP-15: browser warmup
+      INITIALIZING: '#2080f0', // SCP-15: browser starting
       RUNNING: '#18a058',
       IDLE: '#f0a020',
       PAUSED: '#f0a020',
@@ -58,7 +58,7 @@ export function useStatusColors() {
   }
 
   function getStatusType(status: ScraperStatus | WorkerStatus): 'success' | 'info' | 'warning' | 'error' | 'default' {
-    if (status === 'INITIALIZING') return 'info' // SCP-15: blue tag for browser warmup
+    if (status === 'INITIALIZING') return 'info' // SCP-15: blue tag while the browser starts
     if (status === 'RUNNING' || status === 'CONNECTED' || status === 'COMPLETED') return 'success'
     if (status === 'IDLE') return 'default'
     if (status === 'PAUSED' || status === 'STOPPING' || status === 'WAITING_APPROVAL') return 'warning'

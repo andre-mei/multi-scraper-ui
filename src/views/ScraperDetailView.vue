@@ -5,7 +5,8 @@ import { useScrapersStore } from "@/stores/scrapers";
 import { useWorkersStore } from "@/stores/workers";
 import { useStatusColors } from "@/composables/useStatusColors";
 import { useFormatters } from "@/composables/useFormatters";
-import { phaseText, DATA_TABLES } from "@/composables/usePhases";
+import { useFlavor, SUPPORTED_FLAVOR_SCHEMA } from "@/composables/useFlavor";
+import { api } from "@/api";
 import WorkerTable from "@/components/workers/WorkerTable.vue";
 import MetricsCard from "@/components/metrics/MetricsCard.vue";
 import ProgressCard from "@/components/metrics/ProgressCard.vue";
@@ -27,15 +28,28 @@ const scraperId = computed(() => route.params.scraperId as string);
 const scraper = computed(
   () => scrapersStore.scrapers.get(scraperId.value) ?? null,
 );
-const tables = DATA_TABLES;
+const {
+  flavor,
+  supported,
+  hasWorkers,
+  hasProxies,
+  problems,
+  stageText,
+  tables,
+} = useFlavor(scraper);
 
 const selectedWorkerIds = ref<string[]>([]);
 const workersLoading = ref(false);
 const expandedEvents = ref<Set<number>>(new Set());
 
-// Status history line: the scraper's message, e.g. "(PHASE_2_CRAWL) | Phase 2 started: Crawl/Paginate"
-function eventText(event: { message: string }) {
-  return event.message;
+// Status history line: "Phase 2 · Crawl/Paginate · Phase 2 started" (stage is absent on old entries)
+function eventText(event: { stage?: string | null; message: string }) {
+  return event.stage ? `${stageText(event.stage)} · ${event.message}` : event.message;
+}
+
+function showFlavorDetails() {
+  activeTab.value = "details";
+  setTimeout(() => document.getElementById("flavor-card")?.scrollIntoView({ behavior: "smooth" }), 0);
 }
 
 function toggleEventExpand(idx: number) {
@@ -45,18 +59,19 @@ function toggleEventExpand(idx: number) {
   expandedEvents.value = s;
 }
 
-const tabs: { key: string; label: string; disabled?: boolean }[] = [
+// Workers and Proxies follow the flavor's capabilities; the Data tab exists only when it declares tables
+const tabs = computed<{ key: string; label: string; disabled?: boolean }[]>(() => [
   { key: "details", label: "Details" },
   { key: "progress", label: "Progress" },
-  { key: "workers", label: "Workers" },
+  ...(hasWorkers.value ? [{ key: "workers", label: "Workers" }] : []),
   { key: "logs", label: "Logs" },
   { key: "config", label: "Configuration" },
-  { key: "proxies", label: "Proxies" },
-  { key: "data", label: "Data" },
-];
+  ...(hasProxies.value ? [{ key: "proxies", label: "Proxies" }] : []),
+  ...(tables.value.length ? [{ key: "data", label: "Data" }] : []),
+]);
 
 // Sync activeTab with route param
-const validTabKeys = computed(() => tabs.map((t) => t.key));
+const validTabKeys = computed(() => tabs.value.map((t) => t.key));
 const activeTab = computed({
   get() {
     const tab = route.params.tab as string | undefined;
@@ -124,6 +139,38 @@ async function refreshWorkers() {
   }
 }
 
+async function pauseSelectedWorkers() {
+  if (!scraperId.value || selectedWorkerIds.value.length === 0) return;
+  try {
+    await api.sendCommand(
+      scraperId.value,
+      "PAUSE_WORKER",
+      undefined,
+      selectedWorkerIds.value,
+    );
+    // Refresh workers to get updated status
+    await refreshWorkers();
+  } catch (e) {
+    console.error("Failed to pause workers:", e);
+  }
+}
+
+async function resumeSelectedWorkers() {
+  if (!scraperId.value || selectedWorkerIds.value.length === 0) return;
+  try {
+    await api.sendCommand(
+      scraperId.value,
+      "RESUME_WORKER",
+      undefined,
+      selectedWorkerIds.value,
+    );
+    // Refresh workers to get updated status
+    await refreshWorkers();
+  } catch (e) {
+    console.error("Failed to resume workers:", e);
+  }
+}
+
 // watch with immediate:true handles initial load - no need for onMounted
 watch(scraperId, loadData, { immediate: true });
 </script>
@@ -149,9 +196,18 @@ watch(scraperId, loadData, { immediate: true });
         >
           {{ scraper.status }}
         </span>
-        <span v-if="scraper?.currentPhase" class="phase-badge">
-          {{ phaseText(scraper.currentPhase) }}
+        <span v-if="scraper?.currentStage" class="stage-badge">
+          {{ stageText(scraper.currentStage) }}
         </span>
+        <span v-if="flavor" class="flavor-chip">{{ flavor.label }}</span>
+        <button
+          v-if="problems.length || !supported"
+          class="flavor-chip flavor-chip-warning"
+          :title="problems.join('\n')"
+          @click="showFlavorDetails"
+        >
+          ⚠ {{ supported ? `${problems.length} flavor problem${problems.length === 1 ? "" : "s"}` : "Unsupported flavor" }}
+        </button>
       </div>
       <div class="header-actions">
         <CommandButtons
@@ -175,6 +231,18 @@ watch(scraperId, loadData, { immediate: true });
         <div class="alert-message">
           This scraper is currently disconnected. Commands cannot be sent until
           it reconnects.
+        </div>
+      </div>
+    </div>
+
+    <div v-if="!supported" class="alert alert-warning">
+      <div class="alert-icon">⚠</div>
+      <div class="alert-content">
+        <div class="alert-title">Unsupported flavor version</div>
+        <div class="alert-message">
+          This scraper declares flavor schema v{{ flavor?.schemaVersion }}; this UI understands up to
+          v{{ SUPPORTED_FLAVOR_SCHEMA }}. Flavor-driven tabs are hidden; the raw descriptor is in
+          Details → Flavor.
         </div>
       </div>
     </div>
@@ -231,13 +299,47 @@ watch(scraperId, loadData, { immediate: true });
                 <dt>Last Health</dt>
                 <dd>{{ formatRelativeTime(scraper?.lastHealthReport) }}</dd>
               </div>
-              <div class="info-item">
+              <div v-if="hasWorkers" class="info-item">
                 <dt>Workers</dt>
                 <dd>
                   {{ scraper?.activeWorkerCount }} / {{ scraper?.workerCount }}
                 </dd>
               </div>
             </dl>
+          </section>
+
+          <!-- Flavor Card -->
+          <section v-if="flavor" id="flavor-card" class="card">
+            <h3 class="card-title">Flavor</h3>
+            <dl class="info-grid">
+              <div class="info-item">
+                <dt>Id</dt>
+                <dd class="code">{{ flavor.id }}</dd>
+              </div>
+              <div class="info-item">
+                <dt>Label</dt>
+                <dd>{{ flavor.label }}</dd>
+              </div>
+              <div class="info-item">
+                <dt>Schema</dt>
+                <dd>v{{ flavor.schemaVersion }}</dd>
+              </div>
+              <div class="info-item">
+                <dt>Workers</dt>
+                <dd>{{ hasWorkers ? "yes" : "no" }}</dd>
+              </div>
+              <div class="info-item">
+                <dt>Proxies</dt>
+                <dd>{{ hasProxies ? "yes" : "no" }}</dd>
+              </div>
+            </dl>
+            <ul v-if="problems.length" class="flavor-problems">
+              <li v-for="p in problems" :key="p">{{ p }}</li>
+            </ul>
+            <details class="flavor-json">
+              <summary>Descriptor JSON</summary>
+              <pre>{{ JSON.stringify(flavor, null, 2) }}</pre>
+            </details>
           </section>
 
           <!-- Metrics Section -->
@@ -325,7 +427,7 @@ watch(scraperId, loadData, { immediate: true });
         </div>
 
         <!-- Workers Tab -->
-        <div v-show="activeTab === 'workers'" class="tab-panel">
+        <div v-if="hasWorkers" v-show="activeTab === 'workers'" class="tab-panel">
           <section class="card">
             <div class="card-header-with-actions">
               <h3 class="card-title">
@@ -339,9 +441,20 @@ watch(scraperId, loadData, { immediate: true });
                 >
                   {{ workersLoading ? "Loading..." : "Refresh Workers" }}
                 </button>
-                <span v-if="selectedWorkerIds.length > 0" class="selected-count"
-                  >{{ selectedWorkerIds.length }} selected</span
-                >
+                <template v-if="selectedWorkerIds.length > 0">
+                  <span class="selected-count"
+                    >{{ selectedWorkerIds.length }} selected</span
+                  >
+                  <button @click="pauseSelectedWorkers" class="btn btn-warning">
+                    Pause
+                  </button>
+                  <button
+                    @click="resumeSelectedWorkers"
+                    class="btn btn-success"
+                  >
+                    Resume
+                  </button>
+                </template>
               </div>
             </div>
             <WorkerTable
@@ -371,7 +484,7 @@ watch(scraperId, loadData, { immediate: true });
         </div>
 
         <!-- Proxies Tab -->
-        <div v-show="activeTab === 'proxies'" class="tab-panel">
+        <div v-if="hasProxies" v-show="activeTab === 'proxies'" class="tab-panel">
           <section class="card">
             <div class="proxy-header">
               <div class="proxy-header-left">
@@ -436,7 +549,7 @@ watch(scraperId, loadData, { immediate: true });
         </div>
 
         <!-- Data Tab -->
-        <div v-show="activeTab === 'data'" class="tab-panel">
+        <div v-if="tables.length" v-show="activeTab === 'data'" class="tab-panel">
           <DataTab
             v-if="scraperId"
             :scraper-id="scraperId"
@@ -525,9 +638,9 @@ watch(scraperId, loadData, { immediate: true });
   color: #ffffffe6;
 }
 
-/* Status & Phase Badges */
+/* Status & Stage Badges */
 .status-badge,
-.phase-badge {
+.stage-badge {
   padding: 4px 12px;
   border-radius: 4px;
   font-size: 13px;
@@ -560,12 +673,47 @@ watch(scraperId, loadData, { immediate: true });
   border-color: rgba(112, 192, 232, 0.3);
 }
 
-.phase-badge {
+.stage-badge {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.7);
   border-color: rgba(255, 255, 255, 0.15);
   font-size: 12px;
   border-radius: 12px;
+}
+
+.flavor-chip {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.flavor-chip-warning {
+  color: #f2c97d;
+  border-color: rgba(242, 201, 125, 0.4);
+  background: rgba(242, 201, 125, 0.1);
+  cursor: pointer;
+}
+
+.flavor-problems {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: #f2c97d;
+  font-size: 13px;
+}
+
+.flavor-json {
+  margin-top: 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.flavor-json pre {
+  max-height: 320px;
+  overflow: auto;
+  font-size: 12px;
 }
 
 .header-actions {

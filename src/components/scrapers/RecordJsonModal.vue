@@ -69,6 +69,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
           <div class="modal-title">{{ title }}</div>
           <div class="modal-sub">
             {{ subtitle }}
+            <span v-if="payload?.source"> · {{ payload.source }}</span>
           </div>
         </div>
         <div class="modal-actions">

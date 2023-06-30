@@ -124,7 +124,7 @@ export function useWebSocket() {
         scrapersStore.updateScraperStatus(
           payload.scraperId,
           payload.status,
-          payload.currentPhase,
+          payload.currentStage,
           payload.statusHistory
         )
         // If scraper disconnected, reset logs initialization state
@@ -190,7 +190,7 @@ export function useWebSocket() {
 
       case 'CONFIG_UPDATE': {
         const payload = message.payload as { scraperId: string }
-        // Refresh scraper to get the updated config
+        // Refresh scraper to get the updated setting values
         scrapersStore.fetchScraper(payload.scraperId)
         break
       }
@@ -206,7 +206,7 @@ export function useWebSocket() {
       // ========== NEW gRPC-based Event Types ==========
       
       case 'SCRAPER_EVENT': {
-        // Events from gRPC status stream (errors, warnings, phase changes)
+        // Events from gRPC status stream (errors, warnings, stage changes)
         const payload = message.payload as {
           scraperId: string
           eventType: string

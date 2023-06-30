@@ -12,7 +12,7 @@ import {
 } from "naive-ui";
 import type { Scraper } from "@/types";
 import { useFormatters } from "@/composables/useFormatters";
-import { phaseText } from "@/composables/usePhases";
+import { useFlavor } from "@/composables/useFlavor";
 
 const props = defineProps<{
   scraper: Scraper;
@@ -20,6 +20,7 @@ const props = defineProps<{
 
 const { formatNumber, formatPercent, formatRate, formatDuration } =
   useFormatters();
+const { stageText } = useFlavor(() => props.scraper);
 
 // Show progress content only when scraper is not IDLE or DISCONNECTED
 const hasActiveRun = computed(() => {
@@ -63,8 +64,8 @@ const estimatedTimeRemaining = computed(() => {
         <div id="run-progress-section" class="run-progress-section">
           <NSpace justify="space-between" align="center" class="mb-1">
             <NText depth="3" class="text-sm">Overall Progress</NText>
-            <NText v-if="scraper.currentPhase" depth="3" class="text-sm">
-              {{ phaseText(scraper.currentPhase) }}
+            <NText v-if="scraper.currentStage" depth="3" class="text-sm">
+              Stage: {{ stageText(scraper.currentStage) }}
             </NText>
           </NSpace>
           <NProgress

@@ -10,7 +10,8 @@ import {
 import { MAX_LOGS_IN_MEMORY, useLogsStore } from "@/stores/logs";
 import { useFormatters } from "@/composables/useFormatters";
 import { useThrottleFn } from "@vueuse/core";
-import { logGroupTitle } from "@/composables/usePhases";
+import { useScrapersStore } from "@/stores/scrapers";
+import { useFlavor } from "@/composables/useFlavor";
 import { groupLogs, type DisplayEntry } from "./logGroups";
 
 // Module-level map to persist scroll positions across component mount/unmount cycles
@@ -33,6 +34,8 @@ const props = withDefaults(
 );
 
 const logsStore = useLogsStore();
+const scrapersStore = useScrapersStore();
+const { logGroupTitle } = useFlavor(() => scrapersStore.scrapers.get(props.scraperId));
 const { formatTimestamp } = useFormatters();
 
 const containerRef = ref<HTMLElement | null>(null);

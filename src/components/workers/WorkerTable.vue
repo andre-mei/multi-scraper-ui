@@ -14,12 +14,10 @@ type RowKey = string | number;
 const props = defineProps<{
   scraperId: string;
   selectable?: boolean;
-  checkedRowKeys?: string[];
 }>();
 
 const emit = defineEmits<{
   (e: "select", workerIds: string[]): void;
-  (e: "update:checkedRowKeys", value: string[]): void;
 }>();
 
 const router = useRouter();
@@ -33,10 +31,7 @@ const scraperPaused = computed(
   () => scrapersStore.scrapers.get(props.scraperId)?.status === "PAUSED",
 );
 
-const checkedRowKeys = computed({
-  get: () => props.checkedRowKeys ?? [],
-  set: (value: string[]) => emit("update:checkedRowKeys", value),
-});
+const checkedRowKeys = defineModel<string[]>("checkedRowKeys", { default: [] });
 
 const columns = computed<DataTableColumns<Worker>>(() => [
   {
