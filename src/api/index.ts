@@ -221,6 +221,27 @@ class ApiService {
     })
   }
 
+  // Sinks: the last state/page the scraper reported, and operations forwarded to it
+  async getSinkState(scraperId: string, sinkKey: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/scrapers/${scraperId}/sinks/${encodeURIComponent(sinkKey)}/state`)
+  }
+
+  async getSinkPage(scraperId: string, sinkKey: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/scrapers/${scraperId}/sinks/${encodeURIComponent(sinkKey)}/page`)
+  }
+
+  async sinkOp(
+    scraperId: string,
+    sinkKey: string,
+    op: string,
+    params?: Record<string, unknown>
+  ): Promise<{ status: string }> {
+    return this.request<{ status: string }>(
+      `/scrapers/${scraperId}/sinks/${encodeURIComponent(sinkKey)}/ops/${encodeURIComponent(op)}`,
+      { method: 'POST', body: JSON.stringify(params ?? {}) }
+    )
+  }
+
   // UI Preferences
   async getPreference<T = unknown>(key: string): Promise<T | null> {
     try {

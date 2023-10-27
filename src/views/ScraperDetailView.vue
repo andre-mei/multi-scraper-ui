@@ -5,7 +5,7 @@ import { useScrapersStore } from "@/stores/scrapers";
 import { useWorkersStore } from "@/stores/workers";
 import { useStatusColors } from "@/composables/useStatusColors";
 import { useFormatters } from "@/composables/useFormatters";
-import { useFlavor, SUPPORTED_FLAVOR_SCHEMA } from "@/composables/useFlavor";
+import { useFlavor, RESERVED_TAB_KEYS, SUPPORTED_FLAVOR_SCHEMA } from "@/composables/useFlavor";
 import { api } from "@/api";
 import WorkerTable from "@/components/workers/WorkerTable.vue";
 import MetricsCard from "@/components/metrics/MetricsCard.vue";
@@ -15,6 +15,7 @@ import CommandButtons from "@/components/commands/CommandButtons.vue";
 import ConfigEditor from "@/components/config/ConfigEditor.vue";
 import ProxyTable from "@/components/proxies/ProxyTable.vue";
 import DataTab from "@/components/scrapers/DataTab.vue";
+import { SINK_PANELS } from "@/components/sinks/registry";
 
 const route = useRoute();
 const router = useRouter();
@@ -36,7 +37,16 @@ const {
   problems,
   stageText,
   tables,
+  sinks,
+  findTable,
 } = useFlavor(scraper);
+// One tab per declared sink. A key that collides with a built-in tab is skipped (and reported as a
+// problem by the Manager); a kind this UI has no panel for stays visible as a disabled tab.
+const sinkTabs = computed(() =>
+  sinks.value
+    .filter((s) => !RESERVED_TAB_KEYS.includes(s.key))
+    .map((s) => ({ ...s, panel: SINK_PANELS[s.kind] ?? null })),
+);
 
 const selectedWorkerIds = ref<string[]>([]);
 const workersLoading = ref(false);
@@ -59,7 +69,7 @@ function toggleEventExpand(idx: number) {
   expandedEvents.value = s;
 }
 
-// Workers and Proxies follow the flavor's capabilities; the Data tab exists only when it declares tables
+// Workers and Proxies follow the flavor's capabilities; Data and sink tabs exist only when it declares them
 const tabs = computed<{ key: string; label: string; disabled?: boolean }[]>(() => [
   { key: "details", label: "Details" },
   { key: "progress", label: "Progress" },
@@ -68,6 +78,7 @@ const tabs = computed<{ key: string; label: string; disabled?: boolean }[]>(() =
   { key: "config", label: "Configuration" },
   ...(hasProxies.value ? [{ key: "proxies", label: "Proxies" }] : []),
   ...(tables.value.length ? [{ key: "data", label: "Data" }] : []),
+  ...sinkTabs.value.map((s) => ({ key: s.key, label: s.label, disabled: !s.panel })),
 ]);
 
 // Sync activeTab with route param
@@ -560,6 +571,25 @@ watch(scraperId, loadData, { immediate: true });
           />
         </div>
 
+        <!-- Sink tabs, one per sink the scraper declares -->
+        <div
+          v-for="sink in sinkTabs"
+          :key="sink.key"
+          v-show="activeTab === sink.key"
+          class="tab-panel"
+        >
+          <div v-if="!sink.panel" class="empty-state">
+            This UI has no panel for sink kind {{ sink.kind }}.
+          </div>
+          <component
+            :is="sink.panel"
+            v-else-if="scraperId"
+            :scraper-id="scraperId"
+            :active="activeTab === sink.key"
+            :sink="sink"
+            :table="findTable(sink.table)"
+          />
+        </div>
       </div>
     </div>
   </div>

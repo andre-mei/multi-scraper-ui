@@ -1,6 +1,6 @@
 # Scrapers Visualizer
 
-Snapshot date: 30 June 2023.
+Snapshot date: 27 October 2023.
 
 Admin dashboard for monitoring and managing distributed scrapers. Built with Vue 3, TypeScript, Vite, and Naive UI.
 

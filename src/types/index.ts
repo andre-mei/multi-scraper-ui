@@ -43,6 +43,7 @@ export type CommandType =
   | 'FETCH_DATA'
   | 'FETCH_RECORD'
   | 'START_FROM_STAGE'
+  | 'SINK'
   | 'ACTION'
 
 export type CommandStatus =
@@ -297,6 +298,22 @@ export interface DataUpdatePayload {
   timestamp: string
 }
 
+/** SINK_STATE: the scraper's current state of one sink (opaque to the shell; each panel types its own). */
+export interface SinkStatePayload {
+  scraperId: string
+  sinkKey: string
+  state: Record<string, unknown>
+  timestamp?: string
+}
+
+/** SINK_PAGE: one page of a sink's rows; the body echoes the request's parameters, including `requestId`. */
+export interface SinkPagePayload {
+  scraperId: string
+  sinkKey: string
+  page: Record<string, unknown>
+  timestamp?: string
+}
+
 // Flavor descriptor (sent by the scraper on registration, forwarded by the Manager unchanged)
 export interface FlavorStage { id: string; label: string; title?: string; resumable?: boolean }
 export interface FlavorSort { column: string; direction: 'asc' | 'desc' }
@@ -312,6 +329,16 @@ export interface FlavorTable {
   columns?: FlavorColumn[]
 }
 export interface FlavorColumn { key: string; label: string }
+/** A button of a RECORDS sink; `scope` says which rows the operation applies to. */
+export interface FlavorSinkOperation { op: string; label: string; scope: 'NONE' | 'SELECTED' | 'ALL'; confirm?: string }
+export interface FlavorSink {
+  kind: string
+  key: string
+  label: string
+  table: string
+  columns: FlavorColumn[]
+  operations?: FlavorSinkOperation[]
+}
 /** A flavor-level one-shot command in the "More" menu; sent as ACTION{actionId}. */
 export interface FlavorAction { id: string; label: string; confirm?: string }
 /** One field of the Configuration form. Absent min/max/unit/help mean none. */
@@ -334,6 +361,7 @@ export interface FlavorDescriptor {
   capabilities?: FlavorCapabilities | null
   stages: FlavorStage[]
   tables: FlavorTable[]
+  sinks?: FlavorSink[]
   actions?: FlavorAction[]
   settings?: FlavorSetting[]
   logGroups?: FlavorLogGroup[]
@@ -382,6 +410,8 @@ export type WSMessageType =
   | 'GRPC_CONNECTION_STATE'
   | 'PAGINATION_COMPLETE'
   | 'DATA_UPDATE'
+  | 'SINK_STATE'
+  | 'SINK_PAGE'
   | 'RECORD_JSON'
 
 export interface WSMessage<T = unknown> {

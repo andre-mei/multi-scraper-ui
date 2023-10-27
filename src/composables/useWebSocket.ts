@@ -1,5 +1,5 @@
 import { ref, onUnmounted } from 'vue'
-import { useScrapersStore, useLogsStore, useCommandsStore, useWorkersStore, useDataStore, useRecordsStore } from '@/stores'
+import { useScrapersStore, useLogsStore, useCommandsStore, useWorkersStore, useDataStore, useSinksStore, useRecordsStore } from '@/stores'
 import type { 
   WSMessage, 
   WSScraperStatusPayload, 
@@ -48,6 +48,7 @@ export function useWebSocket() {
   const logsStore = useLogsStore()
   const commandsStore = useCommandsStore()
   const dataStore = useDataStore()
+  const sinksStore = useSinksStore()
   const recordsStore = useRecordsStore()
 
   function connect() {
@@ -166,6 +167,18 @@ export function useWebSocket() {
       case 'DATA_UPDATE': {
         const payload = message.payload as import('@/types').DataUpdatePayload
         dataStore.handleDataUpdate(payload)
+        break
+      }
+
+      case 'SINK_STATE': {
+        const payload = message.payload as import('@/types').SinkStatePayload
+        sinksStore.handleState(payload)
+        break
+      }
+
+      case 'SINK_PAGE': {
+        const payload = message.payload as import('@/types').SinkPagePayload
+        sinksStore.handlePage(payload)
         break
       }
 

@@ -4,6 +4,9 @@ import type { FlavorTable, Scraper } from '@/types'
 /** Highest descriptor schemaVersion this UI understands. A higher one is shown raw, never guessed at. */
 export const SUPPORTED_FLAVOR_SCHEMA = 2
 
+/** Tab keys the shell owns. Mirrors FlavorDescriptor.RESERVED_TAB_KEYS in scraper-protocol (keep both in sync). */
+export const RESERVED_TAB_KEYS = ['details', 'progress', 'workers', 'logs', 'config', 'proxies', 'data']
+
 /** "Listing IDs" → "listing-ids". Only used to open old links that were built from a table label. */
 export function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -41,12 +44,13 @@ export function useFlavor(scraper: MaybeRefOrGetter<Scraper | null | undefined>)
   const tables = computed<UiTable[]>(() =>
     (supported.value ? flavor.value?.tables ?? [] : []).map(t => ({ ...t, routeKey: t.key, slug: slugify(t.label) })))
   const findTable = (key?: string | null) => tables.value.find(t => t.key === key) ?? null
+  const sinks = computed(() => (supported.value ? flavor.value?.sinks : null) ?? [])
   const actions = computed(() => (supported.value ? flavor.value?.actions : null) ?? [])
   const settings = computed(() => (supported.value ? flavor.value?.settings : null) ?? [])
   const logGroupTitle = (kind: string) => flavor.value?.logGroups?.find(g => g.kind === kind)?.title ?? null
 
   return {
     flavor, supported, hasWorkers, hasProxies, problems,
-    stages, stageText, nextStage, resumableStages, tables, findTable, actions, settings, logGroupTitle,
+    stages, stageText, nextStage, resumableStages, tables, findTable, sinks, actions, settings, logGroupTitle,
   }
 }
